@@ -1,21 +1,58 @@
-//
-//  ContentView.swift
-//  CampusHub
-//
-//  Created by iMac1 on 02/04/26.
-//
-
 import SwiftUI
 
 struct ContentView: View {
+    @State private var showSplash = true
+    @State private var showOnboarding = true
+    @State private var selectedTab = "home"
+
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        Group {
+            if showSplash {
+                SplashScreen()
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                            withAnimation { showSplash = false }
+                        }
+                    }
+            } else if showOnboarding {
+                OnboardingScreen()
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                            withAnimation { showOnboarding = false }
+                        }
+                    }
+            } else {
+                MainTabView(selectedTab: $selectedTab)
+            }
         }
-        .padding()
+    }
+}
+
+struct MainTabView: View {
+    @Binding var selectedTab: String
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            // Screen content
+            Group {
+                switch selectedTab {
+                case "home":
+                    HomeScreen()
+                case "clubs":
+                    ClubsScreen()
+                case "calendar":
+                    EventCalendarScreen()
+                case "bookmarks":
+                    BookmarksScreen()
+                case "notifications":
+                    NotificationsScreen()
+                default:
+                    HomeScreen()
+                }
+            }
+        }
     }
 }
 
