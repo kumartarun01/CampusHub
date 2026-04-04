@@ -13,7 +13,7 @@ struct BottomTabBar: View {
         TabItem(id: "home", icon: "house.fill", label: "Home"),
         TabItem(id: "clubs", icon: "building.columns.fill", label: "Clubs"),
         TabItem(id: "calendar", icon: "calendar", label: "Calendar"),
-        TabItem(id: "bookmarks", icon: "bookmark.fill", label: "Calendar"),
+        TabItem(id: "bookmarks", icon: "bookmark.fill", label: "Bookmarks"),
         TabItem(id: "profile", icon: "person.fill", label: "Profile")
     ]
 

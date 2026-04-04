@@ -11,14 +11,14 @@ struct ContentView: View {
                 SplashScreen()
                     .onAppear {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                            withAnimation { showSplash = false }
+                            withAnimation { showSplash = true }
                         }
                     }
             } else if showOnboarding {
                 OnboardingScreen()
                     .onAppear {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-                            withAnimation { showOnboarding = false }
+                            withAnimation { showOnboarding = true }
                         }
                     }
             } else {
@@ -32,24 +32,26 @@ struct MainTabView: View {
     @Binding var selectedTab: String
 
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
+        NavigationStack {
+            ZStack {
+                Color.black.ignoresSafeArea()
 
-            // Screen content
-            Group {
-                switch selectedTab {
-                case "home":
-                    HomeScreen()
-                case "clubs":
-                    ClubsScreen()
-                case "calendar":
-                    EventCalendarScreen()
-                case "bookmarks":
-                    BookmarksScreen()
-                case "notifications":
-                    NotificationsScreen()
-                default:
-                    HomeScreen()
+                // Screen content
+                Group {
+                    switch selectedTab {
+                    case "home":
+                        HomeScreen()
+                    case "clubs":
+                        ClubsScreen()
+                    case "calendar":
+                        EventCalendarScreen()
+                    case "bookmarks":
+                        BookmarksScreen()
+                    case "notifications":
+                        NotificationsScreen()
+                    default:
+                        HomeScreen()
+                    }
                 }
             }
         }

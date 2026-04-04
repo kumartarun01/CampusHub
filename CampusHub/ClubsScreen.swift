@@ -31,7 +31,7 @@ struct ClubsScreen: View {
             VStack(spacing: 0) {
                 // Header
                 HStack {
-                    Text("Event Calendar")
+                    Text("Clubs")
                         .font(.system(size: 26, weight: .bold))
                         .foregroundColor(.white)
                     Spacer()
