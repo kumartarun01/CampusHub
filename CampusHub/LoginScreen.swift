@@ -191,6 +191,7 @@ struct LoginScreen: View {
                 }
             }
         }
+        .toolbar(.hidden)
     }
 }
 
