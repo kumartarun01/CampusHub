@@ -1,6 +1,7 @@
 
 import SwiftUI
 import PhotosUI
+import FirebaseAuth
 
 // ─────────────────────────────────────────────
 // MARK: - ProfileScreen
@@ -74,7 +75,7 @@ struct ProfileScreen: View {
             }
             .alert("Log Out", isPresented: $showLogoutAlert) {
                 Button("Log Out", role: .destructive) {
-                    // Go back to login screen
+                    try? Auth.auth().signOut()
                     appState.screen = .login
                 }
                 Button("Cancel", role: .cancel) {}

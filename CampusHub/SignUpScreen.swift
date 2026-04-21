@@ -1,221 +1,260 @@
 import SwiftUI
+import FirebaseAuth
+import FirebaseFirestore
 
 struct SignUpScreen: View {
-    @State private var fullName = ""
-    @State private var email = ""
-    @State private var password = ""
+    @EnvironmentObject var appState: AppState
+
+    @State private var fullName        = ""
+    @State private var email           = ""
+    @State private var password        = ""
     @State private var confirmPassword = ""
-    @State private var showPassword = false
-    @State private var agreeTerms = false
+    @State private var showPassword    = false
+    @State private var agreeTerms      = false
+
+    @State private var isLoading    = false
+    @State private var errorMessage = ""
+    @State private var showError    = false
+
+    // Password strength 0–4
+    var passwordStrength: Int {
+        var s = 0
+        if password.count >= 8                                   { s += 1 }
+        if password.contains(where: { $0.isUppercase })         { s += 1 }
+        if password.contains(where: { $0.isNumber })            { s += 1 }
+        if password.contains(where: { "!@#$%^&*".contains($0) }){ s += 1 }
+        return s
+    }
+    var strengthColor: Color {
+        switch passwordStrength {
+        case 1: return .red
+        case 2: return .orange
+        case 3: return Color(red: 0.9, green: 0.7, blue: 0.0)
+        case 4: return .green
+        default: return Color(white: 0.2)
+        }
+    }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.black.ignoresSafeArea()
+        ZStack {
+            Color.black.ignoresSafeArea()
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
 
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 0) {
-                        // Header
-                        VStack(spacing: 10) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 20)
-                                    .fill(Color(white: 0.18))
-                                    .frame(width: 72, height: 72)
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.white, lineWidth: 2.5)
-                                    .frame(width: 36, height: 36)
+                    // ── Logo ──────────────────────────────────
+                    VStack(spacing: 12) {
+                        CampusHubLogo(size: 72)
+                        Text("Create Account")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundColor(.white)
+                        Text("Join your campus community")
+                            .font(.system(size: 15))
+                            .foregroundColor(Color(white: 0.5))
+                    }
+                    .padding(.top, 50)
+                    .padding(.bottom, 32)
+
+                    // ── Form ─────────────────────────────────
+                    VStack(spacing: 14) {
+
+                        InputField(icon: "person",    placeholder: "Full name",
+                                   label: "Full Name",        text: $fullName,
+                                   isSecure: false, showToggle: false, showPassword: .constant(false))
+
+                        InputField(icon: "envelope",  placeholder: "you@university.edu",
+                                   label: "University Email", text: $email,
+                                   isSecure: false, showToggle: false, showPassword: .constant(false))
+
+                        InputField(icon: "lock",      placeholder: "Min. 8 characters",
+                                   label: "Password",          text: $password,
+                                   isSecure: !showPassword, showToggle: true, showPassword: $showPassword)
+
+                        InputField(icon: "lock.fill", placeholder: "Repeat password",
+                                   label: "Confirm Password",  text: $confirmPassword,
+                                   isSecure: !showPassword, showToggle: false, showPassword: .constant(false))
+
+                        // Password strength bar
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Password Strength")
+                                .font(.system(size: 12))
+                                .foregroundColor(Color(white: 0.4))
+                            HStack(spacing: 4) {
+                                ForEach(0..<4) { i in
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .fill(i < passwordStrength ? strengthColor : Color(white: 0.2))
+                                        .frame(height: 4)
+                                        .animation(.easeInOut(duration: 0.2), value: passwordStrength)
+                                }
                             }
-
-                            Text("Create Account")
-                                .font(.system(size: 28, weight: .bold))
-                                .foregroundColor(.white)
-
-                            Text("Join your campus community")
-                                .font(.system(size: 15))
-                                .foregroundColor(Color(white: 0.5))
                         }
-                        .padding(.top, 50)
-                        .padding(.bottom, 32)
+                        .padding(.top, 2)
 
-                        // Form
-                        VStack(spacing: 14) {
+                        // Error banner
+                        if showError {
+                            HStack(spacing: 8) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.red).font(.system(size: 13))
+                                Text(errorMessage)
+                                    .font(.system(size: 13)).foregroundColor(.red)
+                                Spacer()
+                            }
+                            .padding(12)
+                            .background(Color.red.opacity(0.1))
+                            .cornerRadius(10)
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.red.opacity(0.3), lineWidth: 1))
+                            .transition(.opacity)
+                        }
 
-                            // Full Name
-                            InputField(
-                                icon: "person",
-                                placeholder: "Full name",
-                                label: "Full Name",
-                                text: $fullName,
-                                isSecure: false,
-                                showToggle: false,
-                                showPassword: .constant(false)
-                            )
-
-                            // Email
-                            InputField(
-                                icon: "envelope",
-                                placeholder: "you@university.edu",
-                                label: "University Email",
-                                text: $email,
-                                isSecure: false,
-                                showToggle: false,
-                                showPassword: .constant(false)
-                            )
-
-                            // Password
-                            InputField(
-                                icon: "lock",
-                                placeholder: "Min. 8 characters",
-                                label: "Password",
-                                text: $password,
-                                isSecure: !showPassword,
-                                showToggle: true,
-                                showPassword: $showPassword
-                            )
-
-                            // Confirm Password
-                            InputField(
-                                icon: "lock.fill",
-                                placeholder: "Repeat password",
-                                label: "Confirm Password",
-                                text: $confirmPassword,
-                                isSecure: !showPassword,
-                                showToggle: false,
-                                showPassword: .constant(false)
-                            )
-
-                            // Password strength indicator
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Password Strength")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(Color(white: 0.4))
-                                HStack(spacing: 4) {
-                                    ForEach(0..<4) { i in
-                                        RoundedRectangle(cornerRadius: 3)
-                                            .fill(i < 2 ? Color.white : Color(white: 0.2))
-                                            .frame(height: 4)
+                        // Terms checkbox
+                        HStack(alignment: .top, spacing: 10) {
+                            Button(action: { agreeTerms.toggle() }) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 5)
+                                        .fill(agreeTerms ? Color.white : Color.clear)
+                                        .frame(width: 20, height: 20)
+                                    RoundedRectangle(cornerRadius: 5)
+                                        .stroke(Color(white: 0.35), lineWidth: 1.5)
+                                        .frame(width: 20, height: 20)
+                                    if agreeTerms {
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(.black)
                                     }
                                 }
                             }
-                            .padding(.top, 2)
+                            (Text("I agree to the ")
+                                .font(.system(size: 13)).foregroundColor(Color(white: 0.45))
+                            + Text("Terms of Service")
+                                .font(.system(size: 13, weight: .semibold)).foregroundColor(.white)
+                            + Text(" and ")
+                                .font(.system(size: 13)).foregroundColor(Color(white: 0.45))
+                            + Text("Privacy Policy")
+                                .font(.system(size: 13, weight: .semibold)).foregroundColor(.white))
+                        }
+                        .padding(.top, 6)
 
-                            // Terms
-                            HStack(alignment: .top, spacing: 10) {
-                                Button(action: { agreeTerms.toggle() }) {
-                                    ZStack {
-                                        RoundedRectangle(cornerRadius: 5)
-                                            .fill(agreeTerms ? Color.white : Color.clear)
-                                            .frame(width: 20, height: 20)
-                                        RoundedRectangle(cornerRadius: 5)
-                                            .stroke(Color(white: 0.35), lineWidth: 1.5)
-                                            .frame(width: 20, height: 20)
-                                        if agreeTerms {
-                                            Image(systemName: "checkmark")
-                                                .font(.system(size: 11, weight: .bold))
-                                                .foregroundColor(.black)
-                                        }
-                                    }
-                                }
-                                Text("I agree to the ")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(Color(white: 0.45))
-                                + Text("Terms of Service")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundColor(.white)
-                                + Text(" and ")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(Color(white: 0.45))
-                                + Text("Privacy Policy")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundColor(.white)
-                            }
-                            .padding(.top, 6)
-
-                            // Sign Up button
-//                            Button(action: {}) {
-//                                Text("Create Account")
-//                                    .font(.system(size: 16, weight: .semibold))
-//                                    .foregroundColor(.black)
-//                                    .frame(maxWidth: .infinity)
-//                                    .frame(height: 52)
-//                                    .background(agreeTerms ? Color.white : Color(white: 0.3))
-//                                    .cornerRadius(13)
-//                            }
-                            NavigationLink(destination: OnboardingScreen()) {
-                                
+                        // Create Account button
+                        Button(action: signUp) {
+                            ZStack {
+                                if isLoading {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                                } else {
                                     Text("Create Account")
                                         .font(.system(size: 16, weight: .semibold))
                                         .foregroundColor(.black)
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 52)
-                                        .background(agreeTerms ? Color.white : Color(white: 0.3))
-                                        .cornerRadius(13)
-                                
-                            }
-                            .disabled(!agreeTerms)
-                            .padding(.top, 8)
-
-                            // Divider
-                            HStack(spacing: 12) {
-                                Rectangle().fill(Color(white: 0.2)).frame(height: 1)
-                                Text("or")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(Color(white: 0.35))
-                                Rectangle().fill(Color(white: 0.2)).frame(height: 1)
-                            }
-
-                            // Google
-                            Button(action: {}) {
-                                HStack(spacing: 10) {
-                                    Image(systemName: "globe")
-                                        .font(.system(size: 16))
-                                        .foregroundColor(.white)
-                                    Text("Sign up with Google")
-                                        .font(.system(size: 15, weight: .medium))
-                                        .foregroundColor(.white)
                                 }
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 52)
-                                .background(Color(white: 0.1))
-                                .cornerRadius(13)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 13)
-                                        .stroke(Color(white: 0.2), lineWidth: 1)
-                                )
                             }
+                            .frame(maxWidth: .infinity).frame(height: 52)
+                            .background(agreeTerms ? Color.white : Color(white: 0.3))
+                            .cornerRadius(13)
                         }
-                        .padding(20)
-                        .background(Color(white: 0.07))
-                        .cornerRadius(20)
-                        .padding(.horizontal, 20)
+                        .disabled(!agreeTerms || isLoading)
+                        .padding(.top, 8)
 
-                        // Login link
-                        HStack(spacing: 4) {
-                            Text("Already have an account?")
-                                .font(.system(size: 14))
-                                .foregroundColor(Color(white: 0.45))
-                            //                            Button(action: {}) {
-                            //                                Text("Log In")
-                            //                                    .font(.system(size: 14, weight: .semibold))
-                            //                                    .foregroundColor(.white)
-                            //                            }
-                            NavigationLink(destination: LoginScreen()) {
-                                Text("Log In")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(.white)
-                                
-                            }
+                        // Divider
+                        HStack(spacing: 12) {
+                            Rectangle().fill(Color(white: 0.2)).frame(height: 1)
+                            Text("or").font(.system(size: 13)).foregroundColor(Color(white: 0.35))
+                            Rectangle().fill(Color(white: 0.2)).frame(height: 1)
                         }
-                        .padding(.top, 24)
-                        .padding(.bottom, 40)
+
+                        // Google
+                        Button(action: {}) {
+                            HStack(spacing: 10) {
+                                Image(systemName: "globe").font(.system(size: 16)).foregroundColor(.white)
+                                Text("Sign up with Google").font(.system(size: 15, weight: .medium)).foregroundColor(.white)
+                            }
+                            .frame(maxWidth: .infinity).frame(height: 52)
+                            .background(Color(white: 0.1)).cornerRadius(13)
+                            .overlay(RoundedRectangle(cornerRadius: 13).stroke(Color(white: 0.2), lineWidth: 1))
+                        }
                     }
+                    .padding(20)
+                    .background(Color(white: 0.07)).cornerRadius(20)
+                    .padding(.horizontal, 20)
+
+                    // Login link
+                    HStack(spacing: 4) {
+                        Text("Already have an account?")
+                            .font(.system(size: 14)).foregroundColor(Color(white: 0.45))
+                        Button(action: { appState.screen = .login }) {
+                            Text("Log In")
+                                .font(.system(size: 14, weight: .semibold)).foregroundColor(.white)
+                        }
+                    }
+                    .padding(.top, 24).padding(.bottom, 40)
                 }
             }
+        }
+        .navigationBarHidden(true)
+    }
+
+    // ── Firebase Sign Up ─────────────────────────────────────────
+    private func signUp() {
+        withAnimation { showError = false }
+
+        guard !fullName.trimmingCharacters(in: .whitespaces).isEmpty else {
+            showErr("Please enter your full name."); return
+        }
+        guard email.contains("@") && email.contains(".") else {
+            showErr("Please enter a valid email address."); return
+        }
+        guard password.count >= 8 else {
+            showErr("Password must be at least 8 characters."); return
+        }
+        guard password == confirmPassword else {
+            showErr("Passwords don't match. Please try again."); return
+        }
+
+        isLoading = true
+
+        Auth.auth().createUser(withEmail: email.trimmingCharacters(in: .whitespaces),
+                               password: password) { result, error in
+            if let error = error {
+                isLoading = false
+                showErr(firebaseMsg(error))
+                return
+            }
+            guard let user = result?.user else {
+                isLoading = false
+                showErr("Something went wrong. Please try again.")
+                return
+            }
+
+            // Save to Firestore
+            Firestore.firestore().collection("users").document(user.uid).setData([
+                "uid":             user.uid,
+                "fullName":        fullName.trimmingCharacters(in: .whitespaces),
+                "email":           email.lowercased().trimmingCharacters(in: .whitespaces),
+                "createdAt":       Timestamp(date: Date()),
+                "profileComplete": false
+            ]) { _ in
+                isLoading = false
+                // Navigate to onboarding via AppState (no NavigationLink needed)
+                withAnimation { appState.screen = .onboarding }
+            }
+        }
+    }
+
+    private func showErr(_ msg: String) {
+        errorMessage = msg
+        withAnimation { showError = true }
+    }
+
+    private func firebaseMsg(_ error: Error) -> String {
+        let code = AuthErrorCode(_bridgedNSError: error as NSError)?.code
+        switch code {
+        case .emailAlreadyInUse: return "This email is already registered. Try logging in."
+        case .invalidEmail:      return "Please enter a valid email address."
+        case .weakPassword:      return "Password is too weak. Use at least 8 characters."
+        case .networkError:      return "Network error. Please check your connection."
+        default:                 return "Sign up failed. Please try again."
         }
     }
 }
 
-// Reusable input field component
+// ── Reusable InputField ─────────────────────────────────────────
 struct InputField: View {
     let icon: String
     let placeholder: String
@@ -230,24 +269,21 @@ struct InputField: View {
             Text(label)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(Color(white: 0.5))
-
             HStack(spacing: 12) {
                 Image(systemName: icon)
                     .foregroundColor(Color(white: 0.4))
-                    .font(.system(size: 15))
-                    .frame(width: 18)
-
+                    .font(.system(size: 15)).frame(width: 18)
                 if isSecure {
-                    SecureField("", text: $text, prompt: Text(placeholder)
-                        .foregroundColor(Color(white: 0.3)))
+                    SecureField("", text: $text,
+                                prompt: Text(placeholder).foregroundColor(Color(white: 0.3)))
                         .foregroundColor(.white)
                 } else {
-                    TextField("", text: $text, prompt: Text(placeholder)
-                        .foregroundColor(Color(white: 0.3)))
+                    TextField("", text: $text,
+                              prompt: Text(placeholder).foregroundColor(Color(white: 0.3)))
                         .foregroundColor(.white)
                         .autocapitalization(.none)
+                        .keyboardType(icon == "envelope" ? .emailAddress : .default)
                 }
-
                 if showToggle {
                     Button(action: { showPassword.toggle() }) {
                         Image(systemName: showPassword ? "eye.slash" : "eye")
@@ -256,18 +292,14 @@ struct InputField: View {
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(Color(white: 0.1))
-            .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color(white: 0.18), lineWidth: 1)
-            )
+            .padding(.horizontal, 16).padding(.vertical, 14)
+            .background(Color(white: 0.1)).cornerRadius(12)
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(white: 0.18), lineWidth: 1))
         }
     }
 }
 
 #Preview {
     SignUpScreen()
+        .environmentObject(AppState())
 }
