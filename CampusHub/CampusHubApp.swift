@@ -2,6 +2,7 @@ import SwiftUI
 import Combine
 import FirebaseAuth
 import FirebaseCore
+import FirebaseDatabase
 
 // ─────────────────────────────────────────────
 // MARK: - CampusHub Logo  (shared across all screens)
@@ -334,6 +335,15 @@ struct LoginScreen: View {
                 return
             }
             store.loadProfile()
+            // Test write to verify RTDB connectivity
+            if let uid = Auth.auth().currentUser?.uid {
+                Database.database(url: "https://campushub-e60aa-default-rtdb.firebaseio.com")
+                    .reference()
+                    .child("profiles")
+                    .child(uid)
+                    .child("lastLogin")
+                    .setValue(ServerValue.timestamp())
+            }
             withAnimation { appState.screen = .onboarding }
         }
     }

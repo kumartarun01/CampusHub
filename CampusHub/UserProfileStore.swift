@@ -108,6 +108,9 @@ final class UserProfileStore: ObservableObject {
         AppNotification(icon:"checkmark.circle.fill", title:"RSVP Confirmed",           body:"Your RSVP for Music Fest (Apr 13) is confirmed. See you there! 🎵",           time:"3d ago",    category:"event", isRead:true)
     ]
 
+    // RTDB reference — explicit URL
+    private let rtdb = Database.database(url: "https://campushub-e60aa-default-rtdb.firebaseio.com").reference()
+
     // Computed
     var initials: String {
         let p = name.split(separator: " ")
@@ -115,44 +118,37 @@ final class UserProfileStore: ObservableObject {
     }
     var unreadCount: Int { notifications.filter { !$0.isRead }.count }
 
-    // MARK: – Load profile from Firestore (signup data)
+    // MARK: – Load profile (Firestore for signup data, RTDB for profile updates)
     func loadProfile() {
         guard let uid = Auth.auth().currentUser?.uid else { return }
+
+        // First load signup data from Firestore
         Firestore.firestore().collection("users").document(uid)
             .getDocument { [weak self] snap, _ in
                 guard let self, let data = snap?.data() else { return }
                 DispatchQueue.main.async {
-                    self.name       = data["fullName"]   as? String ?? ""
-                    self.email      = data["email"]      as? String ?? ""
-                    // Also try to pull latest profile from RTDB
-                    self.loadProfileFromRTDB()
+                    self.name  = data["fullName"] as? String ?? ""
+                    self.email = data["email"]    as? String ?? ""
+                }
+            }
+
+        // Then load full profile from RTDB (overrides if exists)
+        rtdb.child("profiles").child(uid)
+            .observeSingleEvent(of: .value) { [weak self] snapshot in
+                guard let self,
+                      let data = snapshot.value as? [String: Any] else { return }
+                DispatchQueue.main.async {
+                    if let v = data["fullName"]   as? String  { self.name       = v }
+                    if let v = data["email"]      as? String  { self.email      = v }
+                    if let v = data["department"] as? String  { self.department = v }
+                    if let v = data["year"]       as? String  { self.year       = v }
+                    if let v = data["bio"]        as? String  { self.bio        = v }
+                    if let v = data["interests"]  as? [String]{ self.interests  = v }
                 }
             }
     }
 
-    // MARK: – Load full profile from Realtime Database
-    private func loadProfileFromRTDB() {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
-        let ref = Database.database(url: "https://campushub-e60aa-default-rtdb.firebaseio.com")
-            .reference()
-            .child("profiles")
-            .child(uid)
-
-        ref.observeSingleEvent(of: .value) { [weak self] snapshot in
-            guard let self else { return }
-            guard let data = snapshot.value as? [String: Any] else { return }
-            DispatchQueue.main.async {
-                if let v = data["fullName"]   as? String { self.name       = v }
-                if let v = data["email"]      as? String { self.email      = v }
-                if let v = data["department"] as? String { self.department = v }
-                if let v = data["year"]       as? String { self.year       = v }
-                if let v = data["bio"]        as? String { self.bio        = v }
-                if let v = data["interests"]  as? [String] { self.interests = v }
-            }
-        }
-    }
-
-    // MARK: – Save profile to Realtime Database (called from EditProfileScreen)
+    // MARK: – Save profile to Realtime Database
     func saveProfile(
         name: String, email: String, department: String,
         year: String, bio: String, interests: [String],
@@ -172,13 +168,8 @@ final class UserProfileStore: ObservableObject {
             "updatedAt":  ServerValue.timestamp()
         ]
 
-        // ✅ Save to Firebase Realtime Database → /profiles/{uid}
-        let ref = Database.database(url: "https://campushub-e60aa-default-rtdb.firebaseio.com")
-            .reference()
-            .child("profiles")
-            .child(uid)
-
-        ref.setValue(profileData) { [weak self] error, _ in
+        // ✅ Write to RTDB → /profiles/{uid}
+        rtdb.child("profiles").child(uid).setValue(profileData) { [weak self] error, _ in
             guard let self else { return }
             DispatchQueue.main.async {
                 if error == nil {
@@ -194,7 +185,7 @@ final class UserProfileStore: ObservableObject {
         }
     }
 
-    // MARK: – Saved events helpers
+    // MARK: – Helpers
     func isEventSaved(title: String) -> Bool { savedEvents.contains { $0.title == title } }
 
     func toggleSaveEvent(title: String, date: String, icon: String, tag: String) {
@@ -202,7 +193,6 @@ final class UserProfileStore: ObservableObject {
         else { savedEvents.append(SavedEvent(icon: icon, title: title, date: date, tag: tag)) }
     }
 
-    // MARK: – Calendar bookmark helpers
     func isDayBookmarked(day: Int) -> Bool { calendarBookmarks.contains { $0.day == day } }
 
     func toggleDayBookmark(day: Int, title: String) {
