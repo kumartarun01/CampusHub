@@ -11,17 +11,16 @@ struct SignUpScreen: View {
     @State private var confirmPassword = ""
     @State private var showPassword    = false
     @State private var agreeTerms      = false
+    @State private var isLoading       = false
+    @State private var errorMessage    = ""
+    @State private var showError       = false
+    @State private var showSuccess     = false   // ✅ success toast
 
-    @State private var isLoading    = false
-    @State private var errorMessage = ""
-    @State private var showError    = false
-
-    // Password strength 0–4
     var passwordStrength: Int {
         var s = 0
-        if password.count >= 8                                   { s += 1 }
-        if password.contains(where: { $0.isUppercase })         { s += 1 }
-        if password.contains(where: { $0.isNumber })            { s += 1 }
+        if password.count >= 8                                    { s += 1 }
+        if password.contains(where: { $0.isUppercase })          { s += 1 }
+        if password.contains(where: { $0.isNumber })             { s += 1 }
         if password.contains(where: { "!@#$%^&*".contains($0) }){ s += 1 }
         return s
     }
@@ -38,10 +37,11 @@ struct SignUpScreen: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
+
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
 
-                    // ── Logo ──────────────────────────────────
+                    // Logo
                     VStack(spacing: 12) {
                         CampusHubLogo(size: 72)
                         Text("Create Account")
@@ -54,7 +54,7 @@ struct SignUpScreen: View {
                     .padding(.top, 50)
                     .padding(.bottom, 32)
 
-                    // ── Form ─────────────────────────────────
+                    // Form
                     VStack(spacing: 14) {
 
                         InputField(icon: "person",    placeholder: "Full name",
@@ -101,7 +101,8 @@ struct SignUpScreen: View {
                             .padding(12)
                             .background(Color.red.opacity(0.1))
                             .cornerRadius(10)
-                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.red.opacity(0.3), lineWidth: 1))
+                            .overlay(RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color.red.opacity(0.3), lineWidth: 1))
                             .transition(.opacity)
                         }
 
@@ -152,45 +153,80 @@ struct SignUpScreen: View {
                         .disabled(!agreeTerms || isLoading)
                         .padding(.top, 8)
 
-                        // Divider
                         HStack(spacing: 12) {
                             Rectangle().fill(Color(white: 0.2)).frame(height: 1)
                             Text("or").font(.system(size: 13)).foregroundColor(Color(white: 0.35))
                             Rectangle().fill(Color(white: 0.2)).frame(height: 1)
                         }
 
-                        // Google
                         Button(action: {}) {
                             HStack(spacing: 10) {
                                 Image(systemName: "globe").font(.system(size: 16)).foregroundColor(.white)
-                                Text("Sign up with Google").font(.system(size: 15, weight: .medium)).foregroundColor(.white)
+                                Text("Sign up with Google")
+                                    .font(.system(size: 15, weight: .medium)).foregroundColor(.white)
                             }
                             .frame(maxWidth: .infinity).frame(height: 52)
                             .background(Color(white: 0.1)).cornerRadius(13)
-                            .overlay(RoundedRectangle(cornerRadius: 13).stroke(Color(white: 0.2), lineWidth: 1))
+                            .overlay(RoundedRectangle(cornerRadius: 13)
+                                .stroke(Color(white: 0.2), lineWidth: 1))
                         }
                     }
                     .padding(20)
                     .background(Color(white: 0.07)).cornerRadius(20)
                     .padding(.horizontal, 20)
 
-                    // Login link
+                    // ✅ Clickable "Log In" — navigates to Login screen
                     HStack(spacing: 4) {
                         Text("Already have an account?")
                             .font(.system(size: 14)).foregroundColor(Color(white: 0.45))
                         Button(action: { appState.screen = .login }) {
                             Text("Log In")
-                                .font(.system(size: 14, weight: .semibold)).foregroundColor(.white)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.white)
+                                .underline()
                         }
                     }
                     .padding(.top, 24).padding(.bottom, 40)
                 }
             }
+
+            // ✅ Account Created Successfully toast — appears at top
+            if showSuccess {
+                VStack {
+                    HStack(spacing: 10) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(Color(red: 0.2, green: 0.8, blue: 0.4))
+                            .font(.system(size: 18))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Account Created Successfully!")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.white)
+                            Text("Redirecting to login…")
+                                .font(.system(size: 12))
+                                .foregroundColor(Color(white: 0.55))
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16).padding(.vertical, 14)
+                    .background(Color(white: 0.12))
+                    .cornerRadius(14)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color(red: 0.2, green: 0.8, blue: 0.4).opacity(0.4), lineWidth: 1)
+                    )
+                    .padding(.horizontal, 20)
+                    .padding(.top, 60)
+                    Spacer()
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .animation(.spring(response: 0.4), value: showSuccess)
+                .zIndex(10)
+            }
         }
         .navigationBarHidden(true)
     }
 
-    // ── Firebase Sign Up ─────────────────────────────────────────
+    // MARK: – Firebase Sign Up → Firestore
     private func signUp() {
         withAnimation { showError = false }
 
@@ -209,8 +245,10 @@ struct SignUpScreen: View {
 
         isLoading = true
 
-        Auth.auth().createUser(withEmail: email.trimmingCharacters(in: .whitespaces),
-                               password: password) { result, error in
+        Auth.auth().createUser(
+            withEmail: email.trimmingCharacters(in: .whitespaces),
+            password: password
+        ) { result, error in
             if let error = error {
                 isLoading = false
                 showErr(firebaseMsg(error))
@@ -222,18 +260,31 @@ struct SignUpScreen: View {
                 return
             }
 
-            // Save to Firestore
-            Firestore.firestore().collection("users").document(user.uid).setData([
-                "uid":             user.uid,
-                "fullName":        fullName.trimmingCharacters(in: .whitespaces),
-                "email":           email.lowercased().trimmingCharacters(in: .whitespaces),
-                "createdAt":       Timestamp(date: Date()),
-                "profileComplete": false
-            ]) { _ in
-                isLoading = false
-                // Navigate to onboarding via AppState (no NavigationLink needed)
-                withAnimation { appState.screen = .onboarding }
-            }
+            let cleanName  = fullName.trimmingCharacters(in: .whitespaces)
+            let cleanEmail = email.lowercased().trimmingCharacters(in: .whitespaces)
+
+            // ✅ Save signup data to Firestore (users collection)
+            Firestore.firestore()
+                .collection("users")
+                .document(user.uid)
+                .setData([
+                    "uid":             user.uid,
+                    "fullName":        cleanName,
+                    "email":           cleanEmail,
+                    "department":      "",
+                    "year":            "",
+                    "bio":             "",
+                    "interests":       [String](),
+                    "createdAt":       Timestamp(date: Date()),
+                    "profileComplete": false
+                ]) { _ in
+                    isLoading = false
+                    // ✅ Show success toast, then go to login after 2s
+                    withAnimation { showSuccess = true }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                        withAnimation { appState.screen = .login }
+                    }
+                }
         }
     }
 
@@ -243,7 +294,8 @@ struct SignUpScreen: View {
     }
 
     private func firebaseMsg(_ error: Error) -> String {
-        let code = AuthErrorCode(_bridgedNSError: error as NSError)?.code
+        let nsErr = error as NSError
+        let code  = AuthErrorCode(rawValue: nsErr.code)
         switch code {
         case .emailAlreadyInUse: return "This email is already registered. Try logging in."
         case .invalidEmail:      return "Please enter a valid email address."
@@ -254,7 +306,7 @@ struct SignUpScreen: View {
     }
 }
 
-// ── Reusable InputField ─────────────────────────────────────────
+// MARK: – Reusable InputField
 struct InputField: View {
     let icon: String
     let placeholder: String
@@ -294,12 +346,12 @@ struct InputField: View {
             }
             .padding(.horizontal, 16).padding(.vertical, 14)
             .background(Color(white: 0.1)).cornerRadius(12)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(white: 0.18), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 12)
+                .stroke(Color(white: 0.18), lineWidth: 1))
         }
     }
 }
 
 #Preview {
-    SignUpScreen()
-        .environmentObject(AppState())
+    SignUpScreen().environmentObject(AppState())
 }

@@ -91,7 +91,7 @@ struct LogoTriangle: Shape {
 // ─────────────────────────────────────────────
 // MARK: - App State
 // ─────────────────────────────────────────────
-enum AppScreen { case splash, login, onboarding, main }
+enum AppScreen { case splash, login, signup, onboarding, main }
 
 class AppState: ObservableObject {
     @Published var screen: AppScreen = .splash
@@ -129,7 +129,11 @@ struct RootView: View {
         case .splash:
             SplashScreen().environmentObject(appState)
         case .login:
-            LoginScreen().environmentObject(appState)
+            LoginScreen().environmentObject(appState).environmentObject(store)
+        case .signup:
+            SignUpScreen()
+                .environmentObject(appState)
+                .environmentObject(store)
         case .onboarding:
             OnboardingScreen().environmentObject(appState)
         case .main:
@@ -191,6 +195,7 @@ struct SplashScreen: View {
 // ─────────────────────────────────────────────
 struct LoginScreen: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var store:    UserProfileStore
 
     @State private var email        = ""
     @State private var password     = ""
@@ -294,9 +299,7 @@ struct LoginScreen: View {
                         HStack(spacing: 4) {
                             Text("Don't have an account?")
                                 .font(.system(size: 14)).foregroundColor(Color(white: 0.45))
-                            NavigationLink(destination:
-                                SignUpScreen().environmentObject(appState)
-                            ) {
+                            Button(action: { appState.screen = .signup }) {
                                 Text("Sign Up")
                                     .font(.system(size: 14, weight: .semibold)).foregroundColor(.white)
                             }
@@ -330,6 +333,7 @@ struct LoginScreen: View {
                 showErr(loginMsg(error))
                 return
             }
+            store.loadProfile()
             withAnimation { appState.screen = .onboarding }
         }
     }
