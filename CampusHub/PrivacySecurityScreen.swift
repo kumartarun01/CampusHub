@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import FirebaseAuth
 
 // ─────────────────────────────────────────────
 // MARK: - PrivacySecurityScreen
@@ -23,6 +24,7 @@ struct PrivacySecurityScreen: View {
     @State private var pwdErr        = ""
     @State private var showDeact     = false
     @State private var showDelete    = false
+    @State private var isChangingPwd = false
 
     var body: some View {
         ZStack {
@@ -105,13 +107,20 @@ struct PrivacySecurityScreen: View {
                                     }
 
                                     Button(action: savePwd) {
-                                        Text("Update Password")
-                                            .font(.system(size: 14, weight: .semibold)).foregroundColor(.black)
-                                            .frame(maxWidth: .infinity).frame(height: 46)
-                                            .background(canSave ? Color.white : Color(white: 0.25))
-                                            .cornerRadius(12)
+                                        ZStack {
+                                            if isChangingPwd {
+                                                ProgressView()
+                                                    .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                                            } else {
+                                                Text("Update Password")
+                                                    .font(.system(size: 14, weight: .semibold)).foregroundColor(.black)
+                                            }
+                                        }
+                                        .frame(maxWidth: .infinity).frame(height: 46)
+                                        .background(canSave ? Color.white : Color(white: 0.25))
+                                        .cornerRadius(12)
                                     }
-                                    .disabled(!canSave)
+                                    .disabled(!canSave || isChangingPwd)
                                 }
                                 .padding(.horizontal, 20).padding(.bottom, 16)
                             }
@@ -150,11 +159,61 @@ struct PrivacySecurityScreen: View {
         pwdErr = ""
         guard newPwd == confPwd else { pwdErr = "Passwords don't match."; return }
         guard newPwd.count >= 8  else { pwdErr = "Minimum 8 characters required."; return }
-        pwdOK = true
-        curPwd = ""; newPwd = ""; confPwd = ""
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-            pwdOK = false
-            withAnimation { expandPwd = false }
+
+        guard let user = Auth.auth().currentUser,
+              let email = user.email else {
+            pwdErr = "No logged-in user found."
+            return
+        }
+
+        isChangingPwd = true
+
+        // Step 1: Re-authenticate with current password
+        let credential = EmailAuthProvider.credential(withEmail: email, password: curPwd)
+        user.reauthenticate(with: credential) { _, error in
+            if let error = error {
+                DispatchQueue.main.async {
+                    isChangingPwd = false
+                    let code = AuthErrorCode(_bridgedNSError: error as NSError)?.code
+                    switch code {
+                    case .wrongPassword, .invalidCredential:
+                        pwdErr = "Current password is incorrect."
+                    case .tooManyRequests:
+                        pwdErr = "Too many attempts. Try again later."
+                    case .networkError:
+                        pwdErr = "Network error. Check your connection."
+                    default:
+                        pwdErr = "Authentication failed. Please try again."
+                    }
+                }
+                return
+            }
+
+            // Step 2: Update password in Firebase
+            user.updatePassword(to: newPwd) { error in
+                DispatchQueue.main.async {
+                    isChangingPwd = false
+                    if let error = error {
+                        let code = AuthErrorCode(_bridgedNSError: error as NSError)?.code
+                        switch code {
+                        case .weakPassword:
+                            pwdErr = "Password is too weak. Use a stronger one."
+                        case .requiresRecentLogin:
+                            pwdErr = "Session expired. Please log out and log in again."
+                        default:
+                            pwdErr = "Failed to update password. Please try again."
+                        }
+                        return
+                    }
+                    // Success
+                    pwdOK = true
+                    curPwd = ""; newPwd = ""; confPwd = ""
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        pwdOK = false
+                        withAnimation { expandPwd = false }
+                    }
+                }
+            }
         }
     }
 
