@@ -204,6 +204,7 @@ struct LoginScreen: View {
     @State private var isLoading    = false
     @State private var errorMessage = ""
     @State private var showError    = false
+    @State private var showReactivateAlert = false
 
     var body: some View {
         NavigationStack {
@@ -311,6 +312,23 @@ struct LoginScreen: View {
             }
             .navigationBarHidden(true)
         }
+        .alert("Account Deactivated", isPresented: $showReactivateAlert) {
+            Button("Yes, Reactivate") {
+                store.reactivateAccount { success in
+                    if success {
+                        withAnimation { appState.screen = .onboarding }
+                    } else {
+                        try? Auth.auth().signOut()
+                        showErr("Could not reactivate. Please try again.")
+                    }
+                }
+            }
+            Button("No, Stay Deactivated", role: .cancel) {
+                try? Auth.auth().signOut()
+            }
+        } message: {
+            Text("Your account is currently deactivated. Would you like to reactivate it and continue?")
+        }
     }
 
     // ── Firebase Login ──────────────────────────────────────────
@@ -344,7 +362,15 @@ struct LoginScreen: View {
                     .child("lastLogin")
                     .setValue(ServerValue.timestamp())
             }
-            withAnimation { appState.screen = .onboarding }
+            // Check if account is deactivated
+            store.checkDeactivationStatus { isDeactivated in
+                if isDeactivated {
+                    // Show reactivation alert — stay on login screen
+                    showReactivateAlert = true
+                } else {
+                    withAnimation { appState.screen = .onboarding }
+                }
+            }
         }
     }
 

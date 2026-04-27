@@ -13,6 +13,7 @@ import FirebaseAuth
 // ─────────────────────────────────────────────
 struct PrivacySecurityScreen: View {
     @EnvironmentObject var store: UserProfileStore
+    @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) var dismiss
 
     @State private var expandPwd     = false
@@ -25,6 +26,7 @@ struct PrivacySecurityScreen: View {
     @State private var showDeact     = false
     @State private var showDelete    = false
     @State private var isChangingPwd = false
+    @State private var isDeactivating = false
 
     var body: some View {
         ZStack {
@@ -144,9 +146,18 @@ struct PrivacySecurityScreen: View {
         }
         .navigationBarHidden(true)
         .alert("Deactivate Account?", isPresented: $showDeact) {
-            Button("Deactivate", role: .destructive) {}
+            Button("Deactivate", role: .destructive) {
+                isDeactivating = true
+                store.deactivateAccount { success in
+                    isDeactivating = false
+                    if success {
+                        try? Auth.auth().signOut()
+                        appState.screen = .login
+                    }
+                }
+            }
             Button("Cancel", role: .cancel) {}
-        } message: { Text("Your profile will be hidden until you log back in.") }
+        } message: { Text("Your account will be hidden. You can reactivate it anytime by logging back in.") }
         .alert("Delete Account?", isPresented: $showDelete) {
             Button("Delete", role: .destructive) {}
             Button("Cancel", role: .cancel) {}

@@ -91,6 +91,9 @@ final class UserProfileStore: ObservableObject {
     @Published var twoFactor      = false
     @Published var biometric      = true
 
+    // Deactivation
+    @Published var isDeactivated  = false
+
     // App data
     @Published var savedEvents:       [SavedEvent]          = []
     @Published var likedEventIDs:     Set<UUID>             = []
@@ -138,12 +141,13 @@ final class UserProfileStore: ObservableObject {
                 guard let self,
                       let data = snapshot.value as? [String: Any] else { return }
                 DispatchQueue.main.async {
-                    if let v = data["fullName"]   as? String  { self.name       = v }
-                    if let v = data["email"]      as? String  { self.email      = v }
-                    if let v = data["department"] as? String  { self.department = v }
-                    if let v = data["year"]       as? String  { self.year       = v }
-                    if let v = data["bio"]        as? String  { self.bio        = v }
-                    if let v = data["interests"]  as? [String]{ self.interests  = v }
+                    if let v = data["fullName"]   as? String  { self.name         = v }
+                    if let v = data["email"]      as? String  { self.email        = v }
+                    if let v = data["department"] as? String  { self.department   = v }
+                    if let v = data["year"]       as? String  { self.year         = v }
+                    if let v = data["bio"]        as? String  { self.bio          = v }
+                    if let v = data["interests"]  as? [String]{ self.interests    = v }
+                    if let v = data["isDeactivated"] as? Bool { self.isDeactivated = v }
                 }
             }
     }
@@ -211,4 +215,35 @@ final class UserProfileStore: ObservableObject {
     }
 
     func markAllRead() { for i in notifications.indices { notifications[i].isRead = true } }
+
+    // MARK: – Deactivate / Reactivate Account
+    func deactivateAccount(completion: @escaping (Bool) -> Void) {
+        guard let uid = Auth.auth().currentUser?.uid else { completion(false); return }
+        rtdb.child("profiles").child(uid).child("isDeactivated").setValue(true) { [weak self] error, _ in
+            DispatchQueue.main.async {
+                if error == nil { self?.isDeactivated = true }
+                completion(error == nil)
+            }
+        }
+    }
+
+    func reactivateAccount(completion: @escaping (Bool) -> Void) {
+        guard let uid = Auth.auth().currentUser?.uid else { completion(false); return }
+        rtdb.child("profiles").child(uid).child("isDeactivated").setValue(false) { [weak self] error, _ in
+            DispatchQueue.main.async {
+                if error == nil { self?.isDeactivated = false }
+                completion(error == nil)
+            }
+        }
+    }
+
+    // MARK: – Check deactivation status (called after login)
+    func checkDeactivationStatus(completion: @escaping (Bool) -> Void) {
+        guard let uid = Auth.auth().currentUser?.uid else { completion(false); return }
+        rtdb.child("profiles").child(uid).child("isDeactivated")
+            .observeSingleEvent(of: .value) { snapshot in
+                let deactivated = snapshot.value as? Bool ?? false
+                DispatchQueue.main.async { completion(deactivated) }
+            }
+    }
 }

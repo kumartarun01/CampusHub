@@ -48,7 +48,7 @@ struct ProfileScreen: View {
                 NotificationSettingsScreen().environmentObject(store)
             }
             .navigationDestination(isPresented: $goPrivacy) {
-                PrivacySecurityScreen().environmentObject(store)
+                PrivacySecurityScreen().environmentObject(store).environmentObject(appState)
             }
             .navigationDestination(isPresented: $goSaved) {
                 SavedEventsScreen().environmentObject(store)
